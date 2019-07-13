@@ -1,4 +1,4 @@
-pragma solidity ^0.5.0;
+pragma solidity >= 0.5.0 < 0.6.0;
 
 import "truffle/Assert.sol";
 import "truffle/DeployedAddresses.sol";
@@ -6,16 +6,15 @@ import "../contracts/EventTickets.sol";
 import "./Proxy.sol";
 
 contract TestEventTickets {
+  // 1. Seed the Main test contract
+  uint public initialBalance = 1 ether;
+
   string _description = 'book';
   string _url = 'website';
   uint _totalTickets = 10;
 
-  // address buyer = 0xCdABc2bcb262A2aaDdD01de1f7710C6E2F50AC12;
-
   EventTickets public eventTickets;
-  Proxy public ticketsBuyer;
-
-  event ConsoleLog(bytes);
+  Proxy public ticketBuyer;
 
   function() external payable {}
 
@@ -23,10 +22,19 @@ contract TestEventTickets {
   {
     // Contract to test
     eventTickets = new EventTickets(_description, _url, _totalTickets);
-    ticketsBuyer = new Proxy(eventTickets);
-    (bool success, bytes memory ticketsBought) = ticketsBuyer.buyTickets(5);
-    emit ConsoleLog(ticketsBought);
-    Assert.isTrue(success, "Buyer should have bought 5 tickets");
+    ticketBuyer = new Proxy(eventTickets);
+
+    // 2. Fund the ticketBuyer
+    address(ticketBuyer).transfer(500 wei);
+
+    // 3. Tell ticketBuyer to purchase tickets (with price)
+    (bool success, uint ticketsBought) = ticketBuyer.buyTickets(5, 500 wei);
+
+    // 4. assert no revert
+    Assert.isTrue(success, "Transaction should not have reverted");
+
+    // 5. assert expected number of tickets brought is the return value.
+    Assert.equal(ticketsBought, 5, "Buyer should have purchased 5 tickets");
   }
 
   function testReadEvent() public  {
@@ -39,7 +47,7 @@ contract TestEventTickets {
   }
 
   function testGetBuyerTicketCount() public {
-    uint afterBuyTickets = eventTickets.getBuyerTicketCount(address(ticketsBuyer));
+    uint afterBuyTickets = eventTickets.getBuyerTicketCount(address(ticketBuyer));
     Assert.isTrue(afterBuyTickets == 5, "Buyer should have bought 5 tickets");
   }
 
